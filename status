@@ -1,0 +1,20 @@
+* [33m8f00d13[m[33m ([m[1;31morigin/frontend[m[33m)[m heesun-0411-modified SelectDate.jsx
+* [33m5dffbe3[m heesun-0411-Update frontend pages
+*   [33m83664f5[m Merge branch 'develop' of https://github.com/IME-2024-Graduation-Project/PlanT_full-stack into frontend
+[32m|[m[33m\[m  
+[32m|[m *   [33mbaba9a3[m[33m ([m[1;31morigin/develop[m[33m)[m Merge pull request #1 from klll2/develop
+[32m|[m [34m|[m[35m\[m  
+[32m|[m [34m|[m *   [33mbfa32ab[m Merge branch 'develop' of https://github.com/klll2/PlanT_full-stack into develop
+[32m|[m [34m|[m [36m|[m[34m\[m  
+[32m|[m [34m|[m [36m|[m[34m/[m  
+[32m|[m [34m|[m[34m/[m[36m|[m   
+[32m|[m * [36m|[m [33m3dab639[m[33m ([m[1;32mmaster[m[33m)[m Initial Commit Date : 2024-04-07 Content : 1. Make DB to ORM 2. React Setting 3. Django Setting 4. React & Django interlock 5. Axios api 6. recommend function(prototype)
+[32m|[m  [36m/[m  
+* [36m|[m   [33m3892731[m Merge branch 'frontend' of https://github.com/IME-2024-Graduation-Project/PlanT_full-stack into frontend pull [plant-frontend]
+[1;32m|[m[1;33m\[m [36m\[m  
+[1;32m|[m * [36m|[m [33m15e6412[m pull [plant-fornt]
+[1;32m|[m [36m|[m[36m/[m  
+* [36m/[m [33mec49056[m pull [plant-front]
+[36m|[m[36m/[m  
+* [33m04ffd6f[m[33m ([m[1;31morigin/rout_algorithm_1[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;31mdevelop/main[m[33m, [m[1;31mdevelop/develop[m[33m)[m Initial commit
+* [33mbe5c020[m[33m ([m[1;36mHEAD -> [m[1;32mdevelop[m[33m)[m Initial Commit Date : 2024-04-07 Content : 1. Make DB to ORM 2. React Setting 3. Django Setting 4. React & Django interlock 5. Axios api 6. recommend function (prototype)
