@@ -259,4 +259,4 @@ def GenerateTravelCourse(days, selected_tags):
 selected_tags = [1, 3] # [1, 3]은 호텔로 이동시간에 오류가 있고, [5]는 마지막 호텔 방문에서 오류가 있습니다
 days = 1
 recommended_itinerary = GenerateTravelCourse(days, selected_tags)
-print(recommended_itinerary)
+print(recommended_itinerary) # 시간 부분에서 혹시 전달 과정에서 오류가 있을까봐 시간 리스트와 태그 스코어 사이에 상세 정보를 추가했습니다!
