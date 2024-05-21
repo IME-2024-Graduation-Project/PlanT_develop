@@ -3,18 +3,18 @@ from gym import spaces
 import numpy as np
 import random
 
-# Load POI Samples
+# POI Sample
 pois = []
 
-with open('locations.csv', mode='r', encoding='utf-8') as file:
+with open('/content/locations.csv', mode='r', encoding='utf-8') as file:
     reader = csv.DictReader(file)
     for row in reader:
         row['id'] = int(row['id'])
+        row['category'] = int(row['category'])
         row['duration'] = int(row['duration'])
         row['latitude'] = float(row['latitude'])
         row['longitude'] = float(row['longitude'])
-        row['tags'] = list(map(int, row['tags'].split('|'))
-                           ) if row['tags'] else []
+        row['tags'] = list(map(int, row['tags'].split('|')))
         pois.append(row)
 
 # Haversine formula
@@ -44,9 +44,8 @@ def MinutesToTime(minutes):
     minutes = int(minutes) % 60
     return f"{hours:02d}:{minutes:02d}"
 
-# Create Travel Environment
 class CreateTravelEnv(gym.Env):
-    def __init__(self, pois, distances, start_time=12*60, end_time=20*60):
+    def __init__(self, pois, distances, start_time=10*60, end_time=20*60):
         super(CreateTravelEnv, self).__init__()
         self.pois = pois
         self.distances = distances
@@ -54,24 +53,21 @@ class CreateTravelEnv(gym.Env):
         self.end_time = end_time
         self.current_time = start_time
         self.visited = []
-        self.current_location = random.choice([i for i in range(len(
-            pois)) if pois[i]['category'] != 'accommodation'])  # start from a random non-accommodation POI
+        self.current_location = random.choice([i for i in range(len(pois)) if pois[i]['category'] != 3])  # start from a random non-accommodation POI
         self.restaurant_visits = 0
         self.action_space = spaces.Discrete(len(pois))
-        self.observation_space = spaces.Box(
-            low=0, high=len(pois)-1, shape=(1,), dtype=np.int32)
+        self.observation_space = spaces.Box(low=0, high=len(pois)-1, shape=(1,), dtype=np.int32)
         self.last_reward = 0
         self.reward_reasons = []  # to explain the reasons of the rewards
         self.selected_tags = []
 
-    def set_user_tags(self, selected_tags):
+    def SetUserTags(self, selected_tags):
         self.selected_tags = selected_tags
 
     def reset(self):
         self.current_time = self.start_time
         self.visited = []
-        self.current_location = random.choice([i for i in range(len(
-            pois)) if pois[i]['category'] != 'accommodation'])  # start from a random non-accommodation POI
+        self.current_location = random.choice([i for i in range(len(pois)) if pois[i]['category'] != 3])  # start from a random non-accommodation POI
         self.visited.append(self.current_location)
         self.restaurant_visits = 0
         self.last_reward = 0
@@ -83,7 +79,8 @@ class CreateTravelEnv(gym.Env):
         reward = 0
         reasons = []
 
-        if self.pois[action]['category'] == 'accommodation' and self.current_time < self.end_time - 60:
+        # Prevent visiting accommodations except as the final action
+        if self.pois[action]['category'] == 3 and self.current_time < self.end_time - 60:  # Accommodation only allowed as final action
             reasons.append("accommodation selected too early")
             reward = -10
             done = True
@@ -91,7 +88,7 @@ class CreateTravelEnv(gym.Env):
             reasons.append("already visited or invalid action")
             reward = -10
             done = True
-        elif self.pois[action]['category'] == 'restaurant' and self.restaurant_visits >= 3:
+        elif self.pois[action]['category'] == 1 and self.restaurant_visits >= 3:
             reasons.append("too many restaurants visited")
             reward = -10
             done = True
@@ -100,10 +97,8 @@ class CreateTravelEnv(gym.Env):
             reward = -10
             done = True
         else:
-            travel_duration = GetTravelTime(
-                self.distances[self.current_location, action])
-            # hours to minutes
-            visit_duration = self.pois[action]['duration'] * 60
+            travel_duration = GetTravelTime(self.distances[self.current_location, action])
+            visit_duration = self.pois[action]['duration'] * 60  # hours to minutes
 
             if self.current_time + travel_duration + visit_duration <= self.end_time:  # Check timeout
                 self.current_time += travel_duration + visit_duration
@@ -115,11 +110,11 @@ class CreateTravelEnv(gym.Env):
                 reasons.append("POI Visit")
 
                 # Reward2. Match the tags selected by the user
-                if any(tag in self.selected_tags for tag in self.pois[action]['tags']):
+                if any(tag in self.pois[action]['tags'] for tag in self.selected_tags):
                     reward += 20
                     reasons.append("Tag Match")
 
-                if self.pois[action]['category'] == 'restaurant':  # check restaurants
+                if self.pois[action]['category'] == 1:  # check restaurants
                     self.restaurant_visits += 1
 
                 # Reward3. Visiting Nearby POIs
@@ -134,6 +129,7 @@ class CreateTravelEnv(gym.Env):
                     reward += 5
                     reasons.append("Efficient Travel Time")
 
+
                 # Penalty for long travel times
                 if travel_duration > 60:  # more than 1 hour
                     reward -= 15
@@ -143,14 +139,11 @@ class CreateTravelEnv(gym.Env):
                 reasons.append("time out")
                 done = True
 
-        # Ensure the final POI is an accommodation
-        if done and self.pois[self.current_location]['category'] != 'accommodation' and self.current_time >= self.end_time - 60:
-            accommodations = [i for i in range(
-                len(pois)) if pois[i]['category'] == 'accommodation']
-            closest_accommodation = min(
-                accommodations, key=lambda acc: self.distances[self.current_location, acc])
-            travel_duration = GetTravelTime(
-                self.distances[self.current_location, closest_accommodation])
+        # final POI is an accommodation
+        if done and self.pois[self.current_location]['category'] != 3 and self.current_time >= self.end_time - 60:
+            accommodations = [i for i in range(len(pois)) if pois[i]['category'] == 3]
+            closest_accommodation = min(accommodations, key=lambda acc: self.distances[self.current_location, acc])
+            travel_duration = GetTravelTime(self.distances[self.current_location, closest_accommodation])
             if self.current_time + travel_duration <= self.end_time:
                 self.current_time += travel_duration
                 self.current_location = closest_accommodation
@@ -168,68 +161,102 @@ class CreateTravelEnv(gym.Env):
         current_location_name = self.pois[self.current_location]['name']
         visited_names = [self.pois[i]['name'] for i in self.visited]
 
-        print(
-            f"Current Time: {current_time_str}, Reward: {self.last_reward} ({', '.join(self.reward_reasons)})")
+        print(f"Current Time: {current_time_str}, Reward: {self.last_reward} ({', '.join(self.reward_reasons)})")
         print(f"Visited POIs: {visited_names}")
         print(f"Current Location: {current_location_name}")
 
-# Course Generation Function
 
-def GenerateTravelCourse(selected_tags):
+def GenerateTravelCourse(days, selected_tags):
     env = CreateTravelEnv(pois, distances)
-    env.set_user_tags(selected_tags)
+    env.SetUserTags(selected_tags)
 
     # Load the Q-table
-    q_table = np.load('q_table.npy')
+    q_table = np.load('/content/q_table.npy')
 
-    total_reward = 0
-    visited_pois = []
+    itinerary = {}
+    tag_scores = {tag: 0 for tag in selected_tags}
 
-    while total_reward < 85:
-        # print("************Travel Course************")
-        state = env.reset()
-        done = False
-        total_reward = 0
-        visited_pois = [pois[state[0]]['name']]
+    for day in range(1, days + 1):
+        daily_total_reward = 0
+        while daily_total_reward < 85:
+            # print("************Travel Course************")
+            state = env.reset()
+            done = False
+            daily_route = [pois[state[0]]['id']]
+            travel_times = [env.current_time+pois[state[0]]['duration']*60]
+            itinerary_detail = [{
+                'poi_id': pois[state[0]]['id'],
+                'poi_name': pois[state[0]]['name'],
+                'arrival_time': MinutesToTime(env.start_time),
+                'departure_time': MinutesToTime(env.start_time + pois[state[0]]['duration'] * 60)
+            }]
+            daily_total_reward = 0
+            env.current_time += pois[state[0]]['duration'] * 60
 
-        while not done:
-            # env.render()
-            action = np.argmax(q_table[state[0]])
-            next_state, reward, done, _ = env.step(action)
-            if "time out" not in env.reward_reasons:
-                if pois[action]['name'] not in visited_pois:
-                    visited_pois.append(pois[action]['name'])
-                total_reward += reward
+            while not done and env.current_time < env.end_time:
+                action = np.argmax(q_table[state[0]])
+                next_state, reward, done, _ = env.step(action)
+                if "time out" not in env.reward_reasons:
+                    poi_id = pois[action]['id']
+                    poi_name = pois[action]['name']
+                    arrival_time = MinutesToTime(env.current_time - pois[action]['duration'] * 60)
+                    departure_time = MinutesToTime(env.current_time)
+                    itinerary_detail.append({
+                        'poi_id': poi_id,
+                        'poi_name': poi_name,
+                        'arrival_time': arrival_time,
+                        'departure_time': departure_time
+                    })
+                    daily_route.append(poi_id)
+                    travel_times.append(env.current_time - pois[action]['duration'] * 60)
+                    travel_times.append(env.current_time)
+                    daily_total_reward += reward
+                state = next_state
+
+            # final POI is an accommodation
+            if env.pois[state[0]]['category'] != 3:
+                # print("hotel")
+                accommodations = [i for i in range(len(pois)) if pois[i]['category'] == 3]
+                closest_accommodation = min(accommodations, key=lambda acc: env.distances[env.current_location, acc])
+                next_state, reward, done, _ = env.step(closest_accommodation)
+
+                end_duration = GetTravelTime(env.distances[env.current_location, closest_accommodation])
+                env.current_time = travel_times[-1] + end_duration
+
+                poi_id = pois[closest_accommodation]['id']
+                poi_name = pois[closest_accommodation]['name']
+
+                arrival_time = MinutesToTime(env.current_time)
+
+                itinerary_detail.append({
+                    'poi_id': poi_id,
+                    'poi_name': poi_name,
+                    'arrival_time': arrival_time,
+                    'departure_time': None
+                })
+                daily_route.append(poi_id)
+                travel_times.append(env.current_time)
+
+                daily_total_reward += reward
             state = next_state
 
-        # env.render()
+        formatted_travel_times = [MinutesToTime(time) for time in travel_times]
+        itinerary[day] = [daily_route, formatted_travel_times, itinerary_detail]
 
-        # Ensure the final POI is an accommodation
-        if env.pois[state[0]]['category'] != 'accommodation':
-            accommodations = [i for i in range(
-                len(pois)) if pois[i]['category'] == 'accommodation']
-            closest_accommodation = min(
-                accommodations, key=lambda acc: env.distances[env.current_location, acc])
-            # print('추가:', pois[closest_accommodation]['name'])
-            next_state, reward, done, _ = env.step(closest_accommodation)
-            if pois[closest_accommodation]['name'] not in visited_pois:
-                visited_pois.append(pois[closest_accommodation]['name'])
-            total_reward += reward
-            state = next_state
+    for day in range(1, days + 1):
+        daily_route = itinerary[day][0]
+        for poi_id in daily_route:
+            poi_tags = next(poi['tags'] for poi in pois if poi['id'] == poi_id)
+            for tag in selected_tags:
+                if tag in poi_tags:
+                    tag_scores[tag] += 20
 
-        # print(f"Total Reward: {total_reward}")
+    result = {day: itinerary[day] for day in range(1, days + 1)}
+    result['tag_scores'] = tag_scores
 
-    # Output the final current location and time
-    final_location_name = env.pois[env.current_location]['name']
-    final_time_str = MinutesToTime(env.current_time)
+    return result
 
-    if final_location_name not in visited_pois:
-        visited_pois.append(final_location_name)
-
-    return visited_pois
-
-
-# User tags and result
-user_selected_tags = [5]  # case 1: [1, 3], case 2: [5]
-recommended_route = GenerateTravelCourse(user_selected_tags)
-print("Recommended Travel Route:", recommended_route)
+selected_tags = [1, 3] # [1, 3]은 호텔로 이동시간에 오류가 있고, [5]는 마지막 호텔 방문에서 오류가 있습니다
+days = 1
+recommended_itinerary = GenerateTravelCourse(days, selected_tags)
+print(recommended_itinerary)
