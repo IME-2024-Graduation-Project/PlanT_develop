@@ -1,12 +1,20 @@
 import gym
 from gym import spaces
+import csv
 import numpy as np
 import random
+from pathlib import Path
+
+#ROOT
+MODEL_ROOT = Path(__file__).parent
+
+CSV_DIR = MODEL_ROOT/'locations.csv'
+QTABLE_DIR = MODEL_ROOT/'q_table.npy'
 
 # POI Sample
 pois = []
 
-with open('/content/locations.csv', mode='r', encoding='utf-8') as file:
+with open(CSV_DIR, mode='r', encoding='utf-8') as file:
     reader = csv.DictReader(file)
     for row in reader:
         row['id'] = int(row['id'])
@@ -171,7 +179,7 @@ def GenerateTravelCourse(days, selected_tags):
     env.SetUserTags(selected_tags)
 
     # Load the Q-table
-    q_table = np.load('/content/q_table.npy')
+    q_table = np.load(QTABLE_DIR)
 
     itinerary = {}
     tag_scores = {tag: 0 for tag in selected_tags}
