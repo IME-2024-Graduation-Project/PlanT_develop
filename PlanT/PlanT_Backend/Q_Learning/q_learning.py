@@ -248,19 +248,17 @@ def GenerateTravelCourse(days, selected_tags):
                 daily_total_reward += reward
             state = next_state
 
-        formatted_travel_times = [MinutesToTime(time) for time in travel_times]
-        itinerary[day] = [daily_route, formatted_travel_times, itinerary_detail]
-
-    for day in range(1, days + 1):
-        daily_route = itinerary[day][0]
         for poi_id in daily_route:
             poi_tags = next(poi['tags'] for poi in pois if poi['id'] == poi_id)
             for tag in selected_tags:
                 if tag in poi_tags:
                     tag_scores[tag] += 20
 
+        formatted_travel_times = [MinutesToTime(time) for time in travel_times]
+        itinerary[day] = [daily_route, formatted_travel_times, itinerary_detail, tag_scores]
+    
+
     result = {day: itinerary[day] for day in range(1, days + 1)}
-    result['tag_scores'] = tag_scores
 
     return result
 
