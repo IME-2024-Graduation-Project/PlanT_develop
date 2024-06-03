@@ -3,6 +3,7 @@ from gym import spaces
 import csv
 import numpy as np
 import random
+import ast
 from pathlib import Path
 
 #ROOT
@@ -22,7 +23,7 @@ with open(CSV_DIR, mode='r', encoding='utf-8') as file:
         row['duration'] = int(row['duration'])
         row['latitude'] = float(row['latitude'])
         row['longitude'] = float(row['longitude'])
-        row['tags'] = list(map(int, row['tags'].split('|')))
+        row['tags'] = ast.literal_eval(row['tags'])
         pois.append(row)
 
 # Haversine formula
