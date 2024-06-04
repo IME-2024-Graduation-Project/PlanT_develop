@@ -23,7 +23,7 @@ with open('locations.csv', mode='r', encoding='utf-8') as file:
         row['duration'] = int(row['duration'])
         row['latitude'] = float(row['latitude'])
         row['longitude'] = float(row['longitude'])
-        row['tags'] = ast.literal_eval(row['tags'])
+        row['tags'] = int(row['tags'])
         pois.append(row)
 
 # Haversine formula
@@ -90,9 +90,9 @@ class CreateTravelEnv(gym.Env):
     def SetUserTags(self, selected_tags):
         self.selected_tags = selected_tags
     
-    def reset(self):
+    def reset(self, visited_pois=None):
         self.current_time = self.start_time
-        self.visited = []
+        self.visited = visited_pois if visited_pois else []
         self.current_location = random.choice([i for i in range(len(pois)) if pois[i]['category'] != 3])  # start from a random non-accommodation POI
         self.visited.append(self.current_location)
         self.restaurant_visits = 0
@@ -156,7 +156,7 @@ class CreateTravelEnv(gym.Env):
                 reasons.append("POI Visit")
 
                 # Reward 2. Match the tags selected by the user
-                if any(tag in self.pois[action]['tags'] for tag in self.selected_tags):
+                if self.pois[action]['tags'] in self.selected_tags:
                     reward += 30
                     reasons.append("Tag Match")
                 
@@ -216,21 +216,27 @@ def GenerateTravelCourse(days, selected_tags):
     env = CreateTravelEnv(pois, distances)
     env.SetUserTags(selected_tags)
 
+    if selected_tags == [2, 4]:
+        threshold = 110
+    else:
+        threshold = 90
+
     q_table = np.load('q_table.npy')
     # print(q_table)
 
     itinerary = {} # travel plan
-    tag_scores = {tag: 0 for tag in selected_tags} # tag score
+    visited_pois = set()
 
     for day in range(1, days + 1):
+        tag_scores = {tag: 0 for tag in selected_tags} # tag score
         daily_total_reward = 0
 
-        while daily_total_reward < 90:
+        while daily_total_reward < threshold:
             # print("************Travel Course************")
             daily_total_reward = 0
             travel_times = []
             done = False
-            state = env.reset() # initialize environment and choose first poi
+            state = env.reset(visited_pois=list(visited_pois)) # initialize environment and choose first poi
 
 
             # print('현재 상태 poi------>', state)
@@ -289,8 +295,9 @@ def GenerateTravelCourse(days, selected_tags):
         for poi_id in daily_route:
             poi_tags = next(poi['tags'] for poi in pois if poi['id'] == poi_id)
             for tag in selected_tags:
-                if tag in poi_tags:
-                    tag_scores[tag] += 20
+                if tag == poi_tags:
+                    tag_scores[tag] += 30
+            visited_pois.add(poi_id)
 
         itinerary[day] = [daily_route, formatted_travel_times, itinerary_detail, tag_scores]
     
@@ -301,7 +308,7 @@ def GenerateTravelCourse(days, selected_tags):
 
 
 ## Output
-user_selected_tags = [5] # case 1: [1, 3] - 해변, 시장 / case 2: [5] - 레저스포츠
+user_selected_tags = [2, 4] # case 1: [2, 4] - 해변, 시장 / case 2: [6] - 레저스포츠
 days = 1
 recommended_route = GenerateTravelCourse(days, user_selected_tags)
 print(recommended_route)
