@@ -5,25 +5,24 @@ from gym import spaces
 import numpy as np
 import random
 import pandas as pd
-import json
 from pathlib import Path
 import os
+import ast
 from langchain_community.document_loaders.csv_loader import CSVLoader
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
-
 #ROOT
 MODEL_ROOT = Path(__file__).parent
 
-CSV_DIR = MODEL_ROOT/'locations.csv'
+CSV_DIR = MODEL_ROOT/'final_locations.csv'
 QTABLE_DIR = MODEL_ROOT/'q_table.npy'
 DIST_DIR = MODEL_ROOT/'poi_distances.npy'
 
 # Load POIs
 pois = []
 
-with open('total_poi_info_final.csv', mode='r', encoding='utf-8') as file:
+with open('final_locations.csv', mode='r', encoding='utf-8') as file:
     reader = csv.DictReader(file)
     for row in reader:
         row['id'] = int(row['id'])
@@ -31,6 +30,8 @@ with open('total_poi_info_final.csv', mode='r', encoding='utf-8') as file:
         row['duration'] = int(row['duration'])
         row['latitude'] = float(row['latitude'])
         row['longitude'] = float(row['longitude'])
+        row['tags'] = ast.literal_eval(row['tags'])  # 문자열을 리스트로 변환
+        row['tags'] = [int(tag) for tag in row['tags']]
         pois.append(row)
 
 # Load Distance between POIs
@@ -82,20 +83,29 @@ class FaissAsRetriever:
         return trendy_pois
 
     def faissRetriever(query):
-        current_directory = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(current_directory, 'vectorstore/faiss')
-        csv_path = os.path.join(current_directory, 'total_poi_info_final.csv')
+        # current_directory = os.path.dirname(os.path.abspath(__file__))
+        # db_path = os.path.join(current_directory, 'vectorstore/faiss')
+        # csv_path = os.path.join(current_directory, 'total_poi_vectordb.csv')
+        db_path = 'vectorstore/faiss'
+        csv_path = 'final_locations.csv'
         
         vectorstore_manager = FaissAsRetriever(db_path, csv_path)
         vectorstore_manager.load_or_create_vectorstore()
         
         results = vectorstore_manager.search(query)
-
+        
+        results_lst = []
         id_lst = []
         metadata_lst = []
         for i in results:
-            id_lst.append(i.metadata['id'])
-            metadata_lst.append(i.metadata)
+            # id_lst.append(i.metadata['id'])
+            # metadata_lst.append(i.metadata)
+            content = i[0].page_content
+            metadata = i[0].metadata
+            metadata['score'] = i[1]
+            results_lst.append(content)
+            id_lst.append(metadata['id'])
+            metadata_lst.append(metadata)
 
         # poi_info = {
         #     "id": id_lst,
@@ -220,8 +230,6 @@ class CreateTravelEnv(gym.Env):
                 if self.pois[action]['id'] in self.poi_trend:
                     reward += 50
                     reasons.append("Theme Match")
-                else:
-                    print(self.pois[action]['id'])
                 
                 # Reward 3. Visiting Nearby POIs
                 if len(self.visited) > 1:
@@ -279,12 +287,8 @@ def GenerateTravelCourse(days, poi_trend):
 
     for day in range(1, days + 1):
         # print("************New Day************")
-        # tag_scores = {tag: 0 for tag in selected_tags} # tag score
         trend_score = 0
         daily_total_reward = 0
-        cnt = 0
-
-        # track_daily_total_rewards = []  # List to track daily total rewards
 
         threshold = 120
         cnt = 0
@@ -292,8 +296,7 @@ def GenerateTravelCourse(days, poi_trend):
         while daily_total_reward < threshold:
             if cnt > 1000:
                 threshold -= 10
-                cnt = 0
-                
+                cnt = 0            
             cnt += 1
             # print("************Travel Course************")
             # print(visited_pois)
@@ -326,7 +329,7 @@ def GenerateTravelCourse(days, poi_trend):
                 
                 next_state, reward, done, _ = env.step(action) # 상태 update
                 # print('current:', next_state[0], reward, done)
-                env.render()
+                # env.render()
 
                 poi_id = pois[next_state[0]]['id']
                 poi_name = pois[next_state[0]]['name']
@@ -352,14 +355,13 @@ def GenerateTravelCourse(days, poi_trend):
 
                 daily_total_reward += reward
                 # print('total reward:', daily_total_reward)
-                state = next_state
-            
+                state = next_state     
         
         formatted_travel_times = [MinutesToTime(time) for time in travel_times]
 
         for poi_id in daily_route:
             if poi_id in poi_trend:
-                trend_score += 30
+                trend_score += 50
             visited_pois.add(poi_id)
 
         itinerary[day] = [daily_route, formatted_travel_times, itinerary_detail, trend_score]
@@ -368,16 +370,33 @@ def GenerateTravelCourse(days, poi_trend):
 
     return result
 
-def RetrieveAndGenerate(query, days):
-  poi_result = FaissAsRetriever.faissRetriever(query) # query 넣으면 해당되는 poi id 리스트가 반환됩니다.
-  # print(poi_result)
-  poi_trend = []
-  for id in poi_result:
-    poi_trend.append(int(id))
-  recommended_route = GenerateTravelCourse(days, poi_trend)
 
+def RetrieveAndGenerate(days, method, content):
+  poi_trend = []
+  if method == 'tag':
+     selected_tags = list(content)
+     for poi in pois:
+        if any(tag in selected_tags for tag in poi['tags']):
+            poi_trend.append(poi['id'])
+  
+  elif method == 'query': # method == 'query'
+    poi_result = FaissAsRetriever.faissRetriever(str(content)) # query 넣으면 해당되는 poi id 리스트가 반환됩니다.
+    # print(poi_result)
+    for id in poi_result:
+      for row in pois:
+          if row['id'] == int(id) and row['category'] == 3: # 숙소 제거
+              break
+      else:
+          poi_trend.append(int(id))
+  
+  else:
+    print("wrong method")
+
+  recommended_route = GenerateTravelCourse(days, poi_trend)
   return recommended_route
 
-query = "바다 여행" #query example
+# Output
 days = 1
-recommended_route = RetrieveAndGenerate(query, days)
+method = 'query'
+content = "탄소 중립을 실천하는 친환경 여행" #query example
+recommended_route = RetrieveAndGenerate(days, method, content)
