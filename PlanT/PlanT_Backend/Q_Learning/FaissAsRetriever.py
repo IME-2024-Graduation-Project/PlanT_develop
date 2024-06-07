@@ -7,9 +7,10 @@ class FaissAsRetriever:
     def __init__(self, db_path, csv_path):
         self.db_path = db_path
         self.csv_path = csv_path
+        # Add some infomation in metadata
         self.metadata_columns = ['id', 'category', 'duration']
         self.embedding_model = HuggingFaceEmbeddings(
-            model_name='jhgan/ko-sroberta-nli', # 임시 임베딩 모델
+            model_name='BAAI/bge-m3', # 임시 임베딩 모델
             model_kwargs={'device':'cpu'},
             encode_kwargs={'normalize_embeddings':True},
             )
@@ -39,7 +40,7 @@ class FaissAsRetriever:
         if not self.vectorstore:
             raise ValueError("Vectorstore is not loaded. Call load_or_create_vectorstore() first.")
         # Create custom retriever instance
-        retriever = self.vectorstore.as_retriever(search_type='mmr', search_kwargs= {'k': 10, 'fetch_k': 100, 'lambda_mult': 0.1})
+        retriever = self.vectorstore.as_retriever(search_type='mmr', search_kwargs= {'k': 100, 'fetch_k': 200, 'lambda_mult': 0.5})
         trendy_pois = retriever.invoke(query)
 
         return trendy_pois
@@ -53,7 +54,7 @@ if __name__ == "__main__":
     vectorstore_manager = FaissAsRetriever(db_path, csv_path)
     vectorstore_manager.load_or_create_vectorstore()
     
-    query = "쿼리 입력 받을 곳"
+    query = "맛있는 것도 먹고 유명한 관광지도 가고 사진 찍기 좋은 곳" # query example
     results = vectorstore_manager.search(query)
 
     id_lst = []
