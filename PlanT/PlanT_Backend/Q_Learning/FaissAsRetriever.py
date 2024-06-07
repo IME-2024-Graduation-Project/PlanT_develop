@@ -10,7 +10,7 @@ class FaissAsRetriever:
         # Add some infomation in metadata
         self.metadata_columns = ['id', 'category', 'duration']
         self.embedding_model = HuggingFaceEmbeddings(
-            model_name='BAAI/bge-m3', # 임시 임베딩 모델
+            model_name='jhgan/ko-sroberta-nli', # 임시 임베딩 모델
             model_kwargs={'device':'cpu'},
             encode_kwargs={'normalize_embeddings':True},
             )
@@ -45,25 +45,30 @@ class FaissAsRetriever:
 
         return trendy_pois
 
-if __name__ == "__main__":
-    # current_directory = os.getcwd()
-    current_directory = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(current_directory, 'vectorstore/faiss')
-    csv_path = os.path.join(current_directory, 'total_poi_info.csv')
-    
-    vectorstore_manager = FaissAsRetriever(db_path, csv_path)
-    vectorstore_manager.load_or_create_vectorstore()
-    
-    query = "맛있는 것도 먹고 유명한 관광지도 가고 사진 찍기 좋은 곳" # query example
-    results = vectorstore_manager.search(query)
+    def faissRetriever(query):
+        current_directory = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(current_directory, 'vectorstore/faiss')
+        csv_path = os.path.join(current_directory, 'total_poi_vectordb.csv')
+        
+        vectorstore_manager = FaissAsRetriever(db_path, csv_path)
+        vectorstore_manager.load_or_create_vectorstore()
+        
+        results = vectorstore_manager.search(query)
 
-    id_lst = []
-    metadata_lst = []
-    for i in results:
-        id_lst.append(i.metadata['id'])
-        metadata_lst.append(i.metadata)
+        id_lst = []
+        metadata_lst = []
+        for i in results:
+            id_lst.append(i.metadata['id'])
+            metadata_lst.append(i.metadata)
 
-    poi_info = {
-        "id": id_lst,
-        "metadata": metadata_lst,
-    }
+        # poi_info = {
+        #     "id": id_lst,
+        #     "metadata": metadata_lst,
+        # }
+
+        return id_lst
+
+## Output
+query = "바다 여행" #query example
+poi_result = FaissAsRetriever.faissRetriever(query) # query 넣으면 해당되는 poi id 리스트가 반환됩니다.
+print(poi_result)
