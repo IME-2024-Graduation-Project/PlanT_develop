@@ -26,23 +26,6 @@ with open('locations.csv', mode='r', encoding='utf-8') as file:
         row['tags'] = int(row['tags'])
         pois.append(row)
 
-# Haversine formula
-def haversine(lon1, lat1, lon2, lat2):
-    R = 6371  # radius of the earth (km)
-    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
-    c = 2 * np.arcsin(np.sqrt(a))
-    return R * c
-
-# Distance between POIs
-distances = np.zeros((len(pois), len(pois)))
-for i in range(len(pois)):
-    for j in range(len(pois)):
-        distances[i, j] = haversine(pois[i]['longitude'], pois[i]['latitude'],
-                                    pois[j]['longitude'], pois[j]['latitude'])
-
 def GetTravelTime(distance):
     speed_kmh = 30  # 30km/h (직선거리를 고려하여 이동 속도 느리게함)
     speed_kpm = speed_kmh / 60  # distance traveled per minute (km)
@@ -164,13 +147,13 @@ class CreateTravelEnv(gym.Env):
                 if len(self.visited) > 1:
                     prev_location = self.visited[-2]
                     if self.distances[prev_location, action] < 5:  # less than 5km
-                        reward += 10
+                        reward += 15
                         reasons.append("Nearby POI")
                 
-                # Reward 4. Travel efficiency
-                if travel_duration < 10: # less than 10 mins
-                    reward += 5
-                    reasons.append("Efficient Travel Time")
+                # # Reward 4. Travel efficiency
+                # if travel_duration < 10: # less than 10 mins
+                #     reward += 5
+                #     reasons.append("Efficient Travel Time")
                 
                 # Penalty 5. Long travel times
                 if travel_duration > 60:  # more than 1 hour
